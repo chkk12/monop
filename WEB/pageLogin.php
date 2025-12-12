@@ -1,0 +1,193 @@
+<?php
+<?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+require_once 'GameModel.php';
+// suite du code...
+
+session_start();
+
+function connexPDO()
+{
+    include_once("src/myParam.inc.php");
+    try
+    {
+        $conn = new PDO('pgsql:host='.HOST.' dbname=monop', USER, PASS);
+        return $conn;
+    }
+    catch(PDOException $except){
+        echo "Échec de la connexion : ".$except->getMessage();
+        return false;
+        exit();
+    }
+}
+
+$conn = connexPDO();
+if (!$conn) {
+    exit();
+}
+
+if (isset($_COOKIE['remember_user']) && !isset($_SESSION['connecte'])) {
+    $remembered_user = $_COOKIE['remember_user'];
+    try {
+        $sql = "SELECT j.pseudo, c.username FROM compte c 
+                JOIN joueur j ON c.id_joueur = j.id_joueur 
+                WHERE c.username = '$remembered_user'";
+        $stmt = $conn->query($sql);
+        $user_data = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if($user_data) {
+            $_SESSION['connecte'] = true;
+            $_SESSION['pseudo'] = $user_data['pseudo'];
+            header("Location: index.php");
+            exit();
+        }
+    } catch(PDOException $except) {
+        setcookie('remember_user', '', time() - 3600, '/');
+    }
+}
+
+if(isset($_POST['user'])) {
+    $user = $_POST['user'];
+    $mdp = $_POST['mdp'];
+
+    try {
+        $sql = "SELECT j.pseudo, c.username, c.mdp FROM compte c 
+                JOIN joueur j ON c.id_joueur = j.id_joueur 
+                WHERE c.username = '$user'";
+        $stmt = $conn->query($sql);
+        $user_data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if($user_data) {
+            if(password_verify($mdp, $user_data['mdp'])) {
+                $_SESSION['connecte'] = true;
+                $_SESSION['pseudo'] = $user_data['pseudo'];
+
+                if (isset($_POST['rememberMe']) && $_POST['rememberMe'] == 'on') {
+                    $expire_time = time() + (7 * 24 * 60 * 60);
+                    setcookie('remember_user', $user, $expire_time, '/');
+                }
+
+                echo "Connexion réussie ! Bienvenue " . $user_data['pseudo'] . " !";
+                header("Location: index.php");
+                exit();
+            } else {
+                echo "Identifiants incorrects !";
+            }
+        } else {
+            echo "Identifiants incorrects !";
+        }
+
+    } catch(PDOException $except) {
+        echo "Erreur de connexion.";
+    }
+    $_POST = [];
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberSafe Monopoly - Connexion</title>
+    <link rel="stylesheet" href="template/login-styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-animation">
+        <div class="floating-icons">
+            <i class="fas fa-shield-alt"></i>
+            <i class="fas fa-lock"></i>
+            <i class="fas fa-server"></i>
+            <i class="fas fa-database"></i>
+            <i class="fas fa-wifi"></i>
+            <i class="fas fa-cloud"></i>
+            <i class="fas fa-bug"></i>
+            <i class="fas fa-key"></i>
+            <i class="fas fa-fingerprint"></i>
+            <i class="fas fa-user-shield"></i>
+        </div>
+        <div class="gradient-overlay"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="main-section">
+            <div class="form-container">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h1>CyberSafe Monopoly</h1>
+                    <p class="tagline">Maîtrisez la cybersécurité en jouant</p>
+                </div>
+
+                <div class="form-header">
+                    <h2>Connexion</h2>
+                    <p>Accédez à votre espace de jeu sécurisé</p>
+                </div>
+
+                <form class="login-form" id="loginForm" method="POST">
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fas fa-id-card"></i>
+                            Identifiant
+                        </label>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="user" 
+                            placeholder="Votre identifiant"
+                            required
+                            autocomplete="username"
+                        >
+                        <span class="input-focus"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">
+                            <i class="fas fa-lock"></i>
+                            Mot de passe
+                        </label>
+                        <div class="password-wrapper">
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="mdp" 
+                                placeholder="••••••••"
+                                required
+                                autocomplete="current-password"
+                            >
+                        </div>
+                        <span class="input-focus"></span>
+                    </div>
+
+                    <div class="form-options">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="rememberMe" name="rememberMe">
+                            <span class="checkmark"></span>
+                            Se souvenir de moi
+                        </label>
+                        <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+                    </div>
+
+                    <button type="submit" class="login-button">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Se connecter
+                    </button>
+                </form>
+
+                <div class="form-footer">
+                    <p>Vous n'avez pas de compte ?</p>
+                    <a href="register.php" class="signup-link">Créer un compte</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
