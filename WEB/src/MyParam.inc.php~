@@ -1,4 +1,0 @@
-<?php
-define('HOST', 'localhost');
-define('USER', 'cchikh');
-define('PASS', 'Momopop51@');
